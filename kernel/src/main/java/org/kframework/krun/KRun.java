@@ -304,7 +304,7 @@ public class KRun {
                 return super.apply(k);
             }
         }.apply(input);
-        K alphaRenamed = new TransformK() {
+        /*K alphaRenamed = new TransformK() {
             Map<KVariable, KVariable> renames = new HashMap<>();
             int newCount = 0;
 
@@ -315,8 +315,8 @@ public class KRun {
                 }
                 return k;
             }
-        }.apply(sortedComm);
-        return unparseInternal(test, colorize, alphaRenamed, files, kompile);
+        }.apply(sortedComm);*/
+        return unparseInternal(test, colorize, sortedComm, files, kompile);
     }
 
     private static String unparseInternal(Module mod, ColorSetting colorize, K input, FileUtil files, KompileOptions kompile) {

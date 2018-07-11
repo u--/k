@@ -105,7 +105,7 @@ public class Z3Wrapper {
                 }
                 z3Process.destroy();
                 long duration = System.currentTimeMillis() - startTime;
-                if (duration >= timeout) {
+                if (duration >= timeout && (globalOptions.logStmtsOnly || globalOptions.log)) {
                     System.out.println("\nz3 likely timeout\n");
                 }
                 if (result != null) {

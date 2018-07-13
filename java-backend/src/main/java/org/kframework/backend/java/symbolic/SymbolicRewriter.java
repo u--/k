@@ -38,6 +38,7 @@ import org.kframework.main.Main;
 import org.kframework.rewriter.SearchType;
 import org.kframework.utils.errorsystem.KExceptionManager;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -596,7 +597,7 @@ public class SymbolicRewriter {
     }
 
     public List<ConstrainedTerm> proveRule(
-            ConstrainedTerm initialTerm,
+            Rule rule, ConstrainedTerm initialTerm,
             ConstrainedTerm targetTerm,
             List<Rule> specRules, KExceptionManager kem) {
         List<ConstrainedTerm> proofResults = new ArrayList<>();
@@ -809,9 +810,8 @@ public class SymbolicRewriter {
 
             globalOptions.log = oldLogEnabled;
         }
-        System.out.println("Prove steps: " + step);
-        System.out.println("\n=====\nTOTAL TIME: " + (System.currentTimeMillis() - Main.startTime)/1000.
-                + " s\n=====\n");
+        System.out.format("Prove steps: %d\n", step);
+        System.out.format("\n=====\nTOTAL TIME: %f s\n=====\n\n", (System.currentTimeMillis() - Main.startTime) / 1000.);
 
         for (ConstrainedTerm term : proofResults) {
             if (globalOptions.fast) {
@@ -824,7 +824,11 @@ public class SymbolicRewriter {
             System.out.println();
         }
         if (proofResults.isEmpty()) {
-            System.out.println("\n=================\nSpec proved!\n=================\n");
+            System.out.format("=================\nSPEC PROVED: %s %s\n=================\n\n",
+                    new File(rule.getSource().source()).getName(), rule.getLocation());
+        } else {
+            System.out.format("\n=================\nSPEC FAILURE: %s %s\n%d results\n=================\n\n",
+                    new File(rule.getSource().source()).getName(), rule.getLocation(), proofResults.size());
         }
         return proofResults;
     }
@@ -860,8 +864,8 @@ public class SymbolicRewriter {
         boolean inNewStmt = globalOptions.logStmtsOnly && kSequence != null && inNewStmt(kSequence);
 
         if (globalOptions.log || forced || inNewStmt || globalOptions.logRulesPublic) {
-            System.out.println("\nSTEP " + step + " v" + v + " : "
-                    + (System.currentTimeMillis() - Main.startTime) / 1000. + " s \n===================");
+            System.out.format("\nSTEP %d v%d : %f s \n===================\n",
+                    step, v, (System.currentTimeMillis() - Main.startTime) / 1000.);
         }
 
         if (globalOptions.log || forced || inNewStmt) {

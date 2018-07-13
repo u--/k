@@ -44,6 +44,10 @@ public class SMTOperations {
         boolean result = false;
         try {
             String query = KILtoSMTLib.translateConstraint(constraint);
+            if (global.debugFull) {
+                System.err.format("\nAttempting to check unsat for:\n================= \n\t%s\n" +
+                        "query: \n\t%s\n", constraint, query);
+            }
             result = z3.isUnsat(query, smtOptions.z3CnstrTimeout);
             if (result && RuleAuditing.isAuditBegun()) {
                 System.err.println("SMT query returned unsat: " + query);

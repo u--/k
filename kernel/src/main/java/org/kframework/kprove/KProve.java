@@ -57,6 +57,7 @@ public class KProve {
         this.options = options;
         Rewriter rewriter = rewriterGenerator.apply(compiled._1().mainModule());
         Module specModule = compiled._2();
+        options.global.debug |= options.global.debugFull;
         K results = rewriter.prove(specModule);
         int exit;
         if (results instanceof KApply) {

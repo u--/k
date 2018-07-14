@@ -43,14 +43,14 @@ public class SMTOperations {
 
         boolean result = false;
         try {
-            String query = KILtoSMTLib.translateConstraint(constraint);
+            CharSequence query = KILtoSMTLib.translateConstraint(constraint);
             if (global.debugFull) {
                 System.err.format("\nAttempting to check unsat for:\n================= \n\t%s\n" +
                         "query: \n\t%s\n", constraint, query);
             }
             result = z3.isUnsat(query, smtOptions.z3CnstrTimeout);
             if (result && RuleAuditing.isAuditBegun()) {
-                System.err.println("SMT query returned unsat: " + query);
+                System.err.format("SMT query returned unsat: %s\n", query);
             }
         } catch (UnsupportedOperationException e) {
             e.printStackTrace();
@@ -67,13 +67,12 @@ public class SMTOperations {
             Set<Variable> rightOnlyVariables) {
         if (smtOptions.smt == SMTSolver.Z3) {
             try {
-                String query = KILtoSMTLib.translateImplication(left, right, rightOnlyVariables);
+                //From this point on, will be converted to toString() anyway.
+                CharSequence query = KILtoSMTLib.translateImplication(left, right, rightOnlyVariables).toString();
                 if (global.debug) {
-                    System.err.println("\nz3 query: " + query);
+                    System.err.format("\nz3 query: %s\n", query);
                 }
-                return z3.isUnsat(
-                        query,
-                        smtOptions.z3ImplTimeout);
+                return z3.isUnsat(query, smtOptions.z3ImplTimeout);
             } catch (UnsupportedOperationException | SMTTranslationFailure e) {
                 if (!smtOptions.ignoreMissingSMTLibWarning) {
                     kem.registerCriticalWarning(e.getMessage(), e);

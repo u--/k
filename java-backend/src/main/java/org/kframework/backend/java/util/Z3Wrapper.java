@@ -44,7 +44,7 @@ public class Z3Wrapper {
         CHECK_SAT = options.z3Tactic == null ? "(check-sat)" : "(check-sat-using " + options.z3Tactic + ")";
     }
 
-    public synchronized boolean isUnsat(String query, int timeout) {
+    public synchronized boolean isUnsat(CharSequence query, int timeout) {
         if (options.z3Executable) {
             return checkQueryWithExternalProcess(query, timeout);
         } else {
@@ -52,7 +52,7 @@ public class Z3Wrapper {
         }
     }
 
-    private boolean checkQueryWithLibrary(String query, int timeout) {
+    private boolean checkQueryWithLibrary(CharSequence query, int timeout) {
         boolean result = false;
         try (Z3Context context = new Z3Context()) {
             Z3Solver solver = new Z3Solver(context);
@@ -74,7 +74,7 @@ public class Z3Wrapper {
     /**
      * @return true if query result is unsat, false otherwise.
      */
-    private boolean checkQueryWithExternalProcess(String query, int timeout) {
+    private boolean checkQueryWithExternalProcess(CharSequence query, int timeout) {
         String result = "";
         try {
             for (int i = 0; i < Z3_RESTART_LIMIT; i++) {
@@ -87,12 +87,10 @@ public class Z3Wrapper {
                 pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
                 long startTime = System.currentTimeMillis();
                 Process z3Process = pb.start();
-                BufferedWriter input = new BufferedWriter(new OutputStreamWriter(
-                    z3Process.getOutputStream()));
-                BufferedReader output = new BufferedReader(new InputStreamReader(
-                    z3Process.getInputStream()));
-                input.write(SMT_PRELUDE + query + CHECK_SAT + "\n");
-                input.flush();
+                PrintWriter input = new PrintWriter(z3Process.getOutputStream());
+                BufferedReader output = new BufferedReader(new InputStreamReader(z3Process.getInputStream()));
+                input.format("%s%s%s\n", SMT_PRELUDE, query, CHECK_SAT);
+                input.close();
                 result = null;
                 String line = output.readLine();
                 while (line != null && line.startsWith("(error")) {

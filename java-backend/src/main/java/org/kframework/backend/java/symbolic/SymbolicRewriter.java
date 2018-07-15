@@ -811,7 +811,7 @@ public class SymbolicRewriter {
             globalOptions.log = oldLogEnabled;
         }
         System.out.format("Prove steps: %d\n", step);
-        System.out.format("\n=====\nTOTAL TIME: %f s\n=====\n\n", (System.currentTimeMillis() - Main.startTime) / 1000.);
+        System.out.format("\n=====\nTOTAL TIME: %.3f s\n=====\n\n", (System.currentTimeMillis() - Main.startTime) / 1000.);
 
         for (ConstrainedTerm term : proofResults) {
             if (globalOptions.fast) {
@@ -864,7 +864,7 @@ public class SymbolicRewriter {
         boolean inNewStmt = globalOptions.logStmtsOnly && kSequence != null && inNewStmt(kSequence);
 
         if (globalOptions.log || forced || inNewStmt || globalOptions.logRulesPublic) {
-            System.out.format("\nSTEP %d v%d : %f s \n===================\n",
+            System.out.format("\nSTEP %d v%d : %.3f s \n===================\n",
                     step, v, (System.currentTimeMillis() - Main.startTime) / 1000.);
         }
 

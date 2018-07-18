@@ -825,10 +825,10 @@ public class SymbolicRewriter {
         }
         if (proofResults.isEmpty()) {
             System.out.format("=================\nSPEC PROVED: %s %s\n=================\n\n",
-                    new File(rule.getSource().source()).getName(), rule.getLocation());
+                    new File(rule.getSource().source()), rule.getLocation());
         } else {
             System.out.format("\n=================\nSPEC FAILURE: %s %s\n%d results\n=================\n\n",
-                    new File(rule.getSource().source()).getName(), rule.getLocation(), proofResults.size());
+                    new File(rule.getSource().source()), rule.getLocation(), proofResults.size());
         }
         return proofResults;
     }

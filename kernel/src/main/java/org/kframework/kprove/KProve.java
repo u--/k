@@ -9,6 +9,7 @@ import org.kframework.definition.*;
 import org.kframework.definition.Module;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.Kompile;
+import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
 import org.kframework.krun.KRun;
@@ -44,6 +45,7 @@ public class KProve {
     private static TTYInfo tty;
     private static Tuple2<Definition, Module> compiled;
     public static KProveOptions options;
+    private static KompileOptions kompileOptions;
 
     @Inject
     public KProve(KExceptionManager kem, Stopwatch sw, FileUtil files, TTYInfo tty) {
@@ -54,6 +56,7 @@ public class KProve {
     }
 
     public int run(KProveOptions options, CompiledDefinition compiledDefinition, Backend backend, Function<Module, Rewriter> rewriterGenerator) {
+        kompileOptions = compiledDefinition.kompileOptions;
         compiled = getProofDefinition(options.specFile(files), options.defModule, options.specModule, compiledDefinition, backend, options.global, files, kem, sw);
         this.options = options;
         Rewriter rewriter = rewriterGenerator.apply(compiled._1().mainModule());
@@ -74,9 +77,13 @@ public class KProve {
     }
 
     public static void prettyPrint(K results) {
+        Definition definition = compiled._1();
         Option<Module> module = compiled._1().getModule("LANGUAGE-PARSING");
         KRun.prettyPrint(
+                definition,
                 module.get(),
+                files,
+                kompileOptions,
                 options.prettyPrint.output,
                 s -> KRun.outputFile(s,
                         options.prettyPrint, files),

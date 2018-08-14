@@ -322,6 +322,17 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
                         .map(r -> converter.convert(Optional.<Module>empty(), r))
                         .map(r -> new org.kframework.backend.java.kil.Rule(
                                 r.label(),
+                                r.leftHandSide(),
+                                r.rightHandSide(),
+                                r.requires().stream().map(c -> evaluate(c, null, termContext)).collect(Collectors.toList()),
+                                r.ensures(),
+                                r.freshConstants(),
+                                r.freshVariables(),
+                                r.lookups(),
+                                r.att(),
+                                termContext.global()))
+                        .map(r -> new org.kframework.backend.java.kil.Rule(
+                                r.label(),
                                 evaluate(r.leftHandSide(), r.getRequires(), termContext),
                                 evaluate(r.rightHandSide(), r.getRequires(), termContext),
                                 r.requires(),

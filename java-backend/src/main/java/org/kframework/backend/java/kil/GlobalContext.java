@@ -8,6 +8,7 @@ import org.kframework.backend.java.symbolic.BuiltinFunction;
 import org.kframework.backend.java.symbolic.Equality.EqualityOperations;
 import org.kframework.backend.java.symbolic.SMTOperations;
 import org.kframework.backend.java.symbolic.Stage;
+import org.kframework.backend.java.util.FormulaSimplificationCache;
 import org.kframework.backend.java.util.Profiler2;
 import org.kframework.backend.java.util.Z3Wrapper;
 import org.kframework.krun.KRunOptions;
@@ -34,6 +35,7 @@ public class GlobalContext implements Serializable {
     public final transient FileUtil files;
     public final transient GlobalOptions globalOptions;
     public final transient Profiler2 profiler;
+    public final transient FormulaSimplificationCache formulaCache = new FormulaSimplificationCache();
 
     private boolean isExecutionPhase = true;
 

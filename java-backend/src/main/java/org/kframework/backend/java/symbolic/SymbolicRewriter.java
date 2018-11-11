@@ -204,8 +204,6 @@ public class SymbolicRewriter {
                 theNew = theNew.substituteAndEvaluate(substitution, subject.termContext());
             }
 
-            subject.termContext().setTopConstraint(null);
-
             theNew = restoreConfigurationIfNecessary(subject, rule, theNew);
 
             /* eliminate bindings of the substituted variables */
@@ -403,7 +401,6 @@ public class SymbolicRewriter {
         constraint = constraint.orientSubstitution(substitutedVars);
         context.setTopConstraint(constraint);
         Term term = rule.rightHandSide().substituteAndEvaluate(constraint.substitution(), context);
-        context.setTopConstraint(null);
 
         /* eliminate bindings of the substituted variables */
         constraint = constraint.removeBindings(substitutedVars);

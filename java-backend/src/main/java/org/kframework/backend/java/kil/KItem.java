@@ -9,7 +9,6 @@ import org.kframework.backend.java.builtins.MetaK;
 import org.kframework.backend.java.builtins.SortMembership;
 import org.kframework.backend.java.symbolic.BuiltinFunction;
 import org.kframework.backend.java.symbolic.ConjunctiveFormula;
-import org.kframework.backend.java.symbolic.DisjunctiveFormula;
 import org.kframework.backend.java.symbolic.PatternMatcher;
 import org.kframework.backend.java.symbolic.RuleAuditing;
 import org.kframework.backend.java.symbolic.Stage;
@@ -60,7 +59,7 @@ import java.util.stream.Collectors;
  * @author AndreiS
  */
 @SuppressWarnings("serial")
-public class KItem extends Term implements KItemRepresentation, HasGlobalContext {
+public class KItem extends Term implements KItemRepresentation {
 
     private final Term kLabel;
     private final Term kList;
@@ -77,10 +76,6 @@ public class KItem extends Term implements KItemRepresentation, HasGlobalContext
 
     private BitSet[] childrenDontCareRuleMask = null;
     private final Profiler2 profiler;
-
-    public KItem(KLabel kLabel, Term kList, Sort sort, boolean isExactSort, Att att) {
-        this(kLabel, kList, sort, isExactSort, Collections.singleton(sort), att);
-    }
 
     public static KItem of(Term kLabel, Term kList, GlobalContext global) {
         return of(kLabel, kList, global, Att.empty(), null);
@@ -103,30 +98,24 @@ public class KItem extends Term implements KItemRepresentation, HasGlobalContext
         return new KItem(kLabel, kList, global, global.stage, att, childrenDontCareRuleMask);
     }
 
-    public KItem(Term kLabel, Term kList, Sort sort, boolean isExactSort) {
-        this(kLabel, kList, sort, isExactSort, null, null);
+    public KItem(KLabel kLabel, Term kList, GlobalContext global, Sort sort, boolean isExactSort, Att att) {
+        this(kLabel, kList, global, sort, isExactSort, Collections.singleton(sort), att);
     }
 
-    private KItem(Term kLabel, Term kList, Sort sort, boolean isExactSort, Set<Sort> possibleSorts, Att att) {
+    public KItem(Term kLabel, Term kList, GlobalContext global, Sort sort, boolean isExactSort) {
+        this(kLabel, kList, global, sort, isExactSort, null, null);
+    }
+
+    private KItem(Term kLabel, Term kList, GlobalContext global, Sort sort, boolean isExactSort, Set<Sort> possibleSorts, Att att) {
         super(computeKind(kLabel), att);
         this.kLabel = kLabel;
         this.kList = kList;
         this.sort = sort;
         this.isExactSort = isExactSort;
         this.possibleSorts = possibleSorts;
-        this.global = null;
-        this.profiler = null;
+        this.global = global;
+        this.profiler = global.profiler;
         this.enableCache = false;
-    }
-
-    private static Kind computeKind(Term kLabel) {
-        if (kLabel instanceof KLabelConstant) {
-            org.kframework.kore.KLabel name = ((KLabelConstant) kLabel);
-            if (KLabels.DOTK.equals(name) || KLabels.KSEQ.equals(name)) {
-                return Kind.K;
-            }
-        }
-        return Kind.KITEM;
     }
 
     private KItem(Term kLabel, Term kList, GlobalContext global, Stage stage, Att att, BitSet[] childrenDonCareRuleMask) {
@@ -163,6 +152,16 @@ public class KItem extends Term implements KItemRepresentation, HasGlobalContext
             possibleSorts = Collections.singleton(sort);
             enableCache = false;
         }
+    }
+
+    private static Kind computeKind(Term kLabel) {
+        if (kLabel instanceof KLabelConstant) {
+            org.kframework.kore.KLabel name = ((KLabelConstant) kLabel);
+            if (KLabels.DOTK.equals(name) || KLabels.KSEQ.equals(name)) {
+                return Kind.K;
+            }
+        }
+        return Kind.KITEM;
     }
 
     private void computeSort() {

@@ -4,7 +4,6 @@ package org.kframework.backend.java.symbolic;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 import org.kframework.attributes.Att;
@@ -196,37 +195,36 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     public static CharSequence translateImplication(
             ConjunctiveFormula leftHandSide,
             ConjunctiveFormula rightHandSide,
-            Set<Variable> rightHandSideOnlyVariables) {
+            Set<Variable> existentialQuantVars) {
         KILtoSMTLib leftTransformer = new KILtoSMTLib(true, leftHandSide.globalContext());
-        KILtoSMTLib rightTransformer = new KILtoSMTLib(false, rightHandSide.globalContext());
+        KILtoSMTLib rightTransformer = new KILtoSMTLib(false,
+                rightHandSide.globalContext().getDefinition(),
+                rightHandSide.globalContext().krunOptions,
+                rightHandSide.globalContext(), new HashMap<>());
         CharSequence leftExpression = leftTransformer.translate(leftHandSide).expression();
         String rightExpression = rightTransformer.translate(rightHandSide).expression().toString();
         StringBuilder sb = new StringBuilder(1024);
-        leftTransformer.appendSortAndFunctionDeclarations(
-                sb, Sets.union(leftTransformer.variables(), rightTransformer.variables()));
+        Sets.SetView<Variable> allVars = Sets.union(leftTransformer.variables(), rightTransformer.variables());
+        Set<Variable> usedExistentialQuantVars = Sets.intersection(existentialQuantVars, rightTransformer.variables());
+        leftTransformer.appendSortAndFunctionDeclarations(sb, allVars);
         if (!leftHandSide.globalContext().globalOptions.optimizeZ3Axioms
                 || rightExpression.contains("chop") || rightExpression.contains("sizeWordStackAux"))
             leftTransformer.appendAxioms(sb);
-        leftTransformer.appendConstantDeclarations(sb,
-                Sets.difference(
-                        Sets.union(leftTransformer.variables(), rightTransformer.variables()),
-                        rightHandSideOnlyVariables));
-        sb.append("(assert (and ");
+        leftTransformer.appendConstantDeclarations(sb, Sets.difference(allVars, usedExistentialQuantVars));
+
+        sb.append("(assert (and\n  ");
         sb.append(leftExpression);
-        sb.append(" (not ");
-        rightHandSideOnlyVariables = Sets.intersection(
-                rightTransformer.variables(),
-                rightHandSideOnlyVariables);
-        if (!rightHandSideOnlyVariables.isEmpty()) {
+        sb.append("\n  (not ");
+        if (!usedExistentialQuantVars.isEmpty()) {
             sb.append("(exists (");
-            leftTransformer.appendQuantifiedVariables(sb, rightHandSideOnlyVariables);
+            leftTransformer.appendQuantifiedVariables(sb, usedExistentialQuantVars);
             sb.append(") ");
         }
         sb.append(rightExpression);
-        if (!rightHandSideOnlyVariables.isEmpty()) {
+        if (!usedExistentialQuantVars.isEmpty()) {
             sb.append(")");
         }
-        sb.append(")))");
+        sb.append(")\n))");
         return sb;
     }
 
@@ -239,20 +237,22 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     /**
      * Flag set to true if it is sounds to skip equalities that cannot be translated.
      */
-    private final boolean skipEqualities;
+    private final boolean skipUnsupportedEqualities;
     private final HashSet<Variable> variables;
-    private final HashMap<Term, Variable> termAbstractionMap = Maps.newHashMap();
+    private final HashMap<Term, Variable> termAbstractionMap;
     private final HashMap<UninterpretedToken, Integer> tokenEncoding;
 
-    public KILtoSMTLib(boolean skipEqualities, GlobalContext global) {
-        this(skipEqualities, global.getDefinition(), global.krunOptions, global);
+    public KILtoSMTLib(boolean skipUnsupportedEqualities, GlobalContext global) {
+        this(skipUnsupportedEqualities, global.getDefinition(), global.krunOptions, global, new HashMap<>());
     }
 
-    private KILtoSMTLib(boolean skipEqualities, Definition definition, KRunOptions krunOptions, GlobalContext global) {
+    private KILtoSMTLib(boolean skipUnsupportedEqualities, Definition definition, KRunOptions krunOptions,
+                        GlobalContext global, HashMap<Term, Variable> termAbstractionMap) {
+        this.skipUnsupportedEqualities = skipUnsupportedEqualities;
         this.definition = definition;
         this.krunOptions = krunOptions;
         this.global = global;
-        this.skipEqualities = skipEqualities;
+        this.termAbstractionMap = termAbstractionMap;
         variables = new HashSet<>();
         tokenEncoding = new HashMap<>();
     }
@@ -262,7 +262,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
         if (astNode instanceof SMTLibTerm) {
             return (SMTLibTerm) astNode;
         } else {
-            throw new SMTTranslationFailure();
+            throw new SMTTranslationFailure("Attempting to translate an unsupported term of type " + object.getClass());
         }
     }
 
@@ -410,10 +410,10 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
      * Ignores the substitution of the symbolic constraint.
      */
     @Override
-    public JavaSymbolicObject transform(ConjunctiveFormula constraint) {
+    public SMTLibTerm transform(ConjunctiveFormula constraint) {
         assert constraint.disjunctions().isEmpty() : "disjunctions are not supported by SMT translation";
         Set<Equality> equalities = Sets.newHashSet(constraint.equalities());
-        if (!skipEqualities) {
+        if (!skipUnsupportedEqualities) {
             constraint.substitution().entrySet().stream()
                     .map(entry -> new Equality(entry.getKey(), entry.getValue(), constraint.globalContext()))
                     .forEach(equalities::add);
@@ -438,7 +438,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
                 isEmptyAdd = false;
             } catch (UnsupportedOperationException e) {
                 // TODO(AndreiS): fix this translation and the exceptions
-                if (skipEqualities){
+                if (skipUnsupportedEqualities){
                     /* it is sound to skip the equalities that cannot be translated */
                     e.printStackTrace();
                 } else {
@@ -457,24 +457,28 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
         try {
             return translate(term).expression();
         } catch (SMTTranslationFailure | UnsupportedOperationException e) {
-            if (skipEqualities){
-                Variable variable = termAbstractionMap.get(term);
-                if (variable == null) {
-                    variable = Variable.getAnonVariable(term.sort());
-                    termAbstractionMap.put(term, variable);
-                    if (global.globalOptions.debugZ3Queries) {
-                        System.err.format("\t%s ::= %s\n", variable.longName(), term);
-                    }
+            return abstractThroughAnonVariable(term, e);
+        }
+    }
+
+    private CharSequence abstractThroughAnonVariable(Term term, RuntimeException e) {
+        if (skipUnsupportedEqualities) {
+            Variable variable = termAbstractionMap.get(term);
+            if (variable == null) {
+                variable = Variable.getAnonVariable(term.sort());
+                termAbstractionMap.put(term, variable);
+                if (global.globalOptions.debugZ3Queries) {
+                    System.err.format("\t%s ::= %s\n", variable.longName(), term);
                 }
-                return variable.longName();
-            } else {
-                throw e;
             }
+            return variable.longName();
+        } else {
+            throw e;
         }
     }
 
     @Override
-    public JavaSymbolicObject transform(KItem kItem) {
+    public SMTLibTerm transform(KItem kItem) {
         if (!(kItem.kLabel() instanceof KLabelConstant)) {
             throw new UnsupportedOperationException();
         }
@@ -497,7 +501,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
             label = "store";
         }
         if (label == null) {
-            throw new UnsupportedOperationException("missing SMTLib translation for " + kLabel);
+            throw new SMTTranslationFailure("missing SMTLib translation for " + kLabel);
         }
 
         if (krunOptions.experimental.smt.floatsAsPO) {
@@ -575,17 +579,17 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     }
 
     @Override
-    public JavaSymbolicObject transform(BoolToken boolToken) {
+    public SMTLibTerm transform(BoolToken boolToken) {
         return new SMTLibTerm(Boolean.toString(boolToken.booleanValue()));
     }
 
     @Override
-    public JavaSymbolicObject transform(IntToken intToken) {
+    public SMTLibTerm transform(IntToken intToken) {
         return new SMTLibTerm(intToken.javaBackendValue());
     }
 
     @Override
-    public JavaSymbolicObject transform(FloatToken floatToken) {
+    public SMTLibTerm transform(FloatToken floatToken) {
         if (krunOptions.experimental.smt.floatsAsPO
                 && (floatToken.bigFloatValue().isPositiveZero() || floatToken.bigFloatValue().isNegativeZero())) {
             return new SMTLibTerm("float_zero");
@@ -602,7 +606,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     }
 
     @Override
-    public JavaSymbolicObject transform(BitVector bitVector) {
+    public SMTLibTerm transform(BitVector bitVector) {
         StringBuilder sb = new StringBuilder();
         sb.append("#b");
         for (int i = bitVector.bitwidth() - 1; i >= 0; --i) {
@@ -613,7 +617,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     }
 
     @Override
-    public JavaSymbolicObject transform(UninterpretedToken uninterpretedToken) {
+    public SMTLibTerm transform(UninterpretedToken uninterpretedToken) {
         if (tokenEncoding.get(uninterpretedToken) == null) {
             tokenEncoding.put(uninterpretedToken, tokenEncoding.size());
         }
@@ -626,7 +630,7 @@ public class    KILtoSMTLib extends CopyOnWriteTransformer {
     }
 
     @Override
-    public JavaSymbolicObject<Term> transform(Variable variable) {
+    public SMTLibTerm transform(Variable variable) {
         variables.add(variable);
         return new SMTLibTerm("|" + variable.longName() + "|");
     }

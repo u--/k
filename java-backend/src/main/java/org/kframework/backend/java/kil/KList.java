@@ -45,6 +45,7 @@ public class KList extends KCollection implements org.kframework.kore.KList {
      * will canonicalize its result and, thus, simply return the given term.
      */
     public static KList singleton(Term term) {
+        if (term.kind().equals(Kind.KLIST)) return (KList) term;
         assert term.kind().equals(Kind.K) || term.kind.equals(Kind.KITEM);
         return new KList(ImmutableList.of(term), null, ImmutableList.<Variable>of());
     }

@@ -273,7 +273,7 @@ module COLLECTIONS
 
   syntax List ::= Set2List(Set) [function, hook(SET.set2list)]
   syntax Set ::= List2Set(List) [function, functional, hook(SET.list2set)]
-
+  rule List2Set(ListItem(E) LS) => SetItem(E)
 endmodule
 
 module BOOL-SYNTAX

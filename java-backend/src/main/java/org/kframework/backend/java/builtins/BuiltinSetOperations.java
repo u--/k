@@ -5,6 +5,7 @@ import org.kframework.backend.java.kil.Bottom;
 import org.kframework.backend.java.kil.BuiltinList;
 import org.kframework.backend.java.kil.BuiltinSet;
 import org.kframework.backend.java.kil.DataStructures;
+import org.kframework.backend.java.kil.KItem;
 import org.kframework.backend.java.kil.Sort;
 import org.kframework.backend.java.kil.Term;
 import org.kframework.backend.java.kil.TermContext;
@@ -124,7 +125,7 @@ public class BuiltinSetOperations {
         }
         BuiltinSet.Builder builder = BuiltinSet.builder(context.global());
         for (Term element : list.getKComponents()) {
-            builder.add(element);
+            builder.add(element instanceof KItem ? ((KItem) element).kList() : element);
         }
         return builder.build();
     }
